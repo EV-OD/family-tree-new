@@ -144,7 +144,13 @@ const FamilyTreeComponent: React.FC = () => {
           }
           // If this member links to another tree, expose a small inline button (rendered by template)
           if (node.linkedTree) {
-            obj["linkTree"] = `<button class="link-tree-btn" data-nodeid="${node.id}" title="Go to linked tree">🔗</button>`;
+            // circular visible button (blue background, white icon) with subtle shadow
+            // class kept for event delegation and data-nodeid for identification
+            obj["linkTree"] = `
+              <div class="link-tree-btn" data-nodeid="${node.id}" title="Go to linked tree" style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#039BE5;border:2px solid #fff;box-shadow:0 6px 12px rgba(3,155,229,0.18);cursor:pointer;">
+                <button style="background:transparent;border:none;font-size:16px;line-height:1;color:#fff;cursor:pointer;padding:0;margin:0;" aria-label="Go to linked tree">🔗</button>
+              </div>
+            `;
           }
           return obj;
         });

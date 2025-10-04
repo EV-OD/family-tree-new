@@ -69,7 +69,8 @@ FamilyTree.templates.atul.field_0 = `
 
 // Small inline link button (field_4) - rendered as HTML inside foreignObject
 FamilyTree.templates.atul.field_4 = `
-    <foreignObject x="70" y="-10" width="40" height="40">
+    <!-- place button slightly to the top-right outside the profile image to avoid overlap -->
+    <foreignObject x="96" y="-22" width="48" height="48">
         <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:center;">
             {val}
         </div>
