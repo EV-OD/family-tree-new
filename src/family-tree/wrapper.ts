@@ -67,6 +67,15 @@ FamilyTree.templates.atul.field_0 = `
         </foreignObject>
 `;
 
+// Small inline link button (field_4) - rendered as HTML inside foreignObject
+FamilyTree.templates.atul.field_4 = `
+    <foreignObject x="70" y="-10" width="40" height="40">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:center;">
+            {val}
+        </div>
+    </foreignObject>
+`;
+
 FamilyTree.templates.atul.node = '<use x="0" y="0" xlink:href="#circle" />';
 FamilyTree.templates.atul.img_0 = 
     '<image preserveAspectRatio="xMidYMid slice" clip-path="url(#atul_img_0)" xlink:href="{val}" x="6" y="6" width="108" height="108"></image>';

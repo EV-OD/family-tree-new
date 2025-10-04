@@ -248,6 +248,39 @@ export const getRootFamilyMember = async (treeName: string) => {
   }
 };
 
+export const linkMemberToTree = async (memberId: string, sourceTreeName: string, targetTreeName: string) => {
+  try {
+    const linkData = {
+      memberId,
+      sourceTreeName,
+      targetTreeName,
+      linkedAt: new Date().toISOString(),
+    };
+    
+    const docRef = await addDoc(collection(db, "treeLinks"), linkData);
+    return { ...linkData, id: docRef.id };
+  } catch (error) {
+    console.error("Error linking member to tree: ", error);
+    throw error;
+  }
+};
+
+export const getTreeLinks = async (memberId: string) => {
+  try {
+    const linksRef = collection(db, "treeLinks");
+    const q = query(linksRef, where("memberId", "==", memberId));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error("Error getting tree links: ", error);
+    throw error;
+  }
+};
+
 export function getFamilyInfo(data: any, userId: string) {
   // Find the user by ID
   const user = data.find(member => member.id === userId);

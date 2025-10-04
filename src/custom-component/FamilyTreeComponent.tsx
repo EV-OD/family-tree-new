@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogFooter,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -52,6 +53,10 @@ const FamilyTreeComponent: React.FC = () => {
   const { nodes, loading, error } = useFamilyTree(selectedTreeName);
   const [isNewTreeDialogOpen, setIsNewTreeDialogOpen] = useState(false);
   const [newTreeName, setNewTreeName] = useState("");
+  const [linkTreeDialogOpen, setLinkTreeDialogOpen] = useState(false);
+  const [selectedMemberForLink, setSelectedMemberForLink] = useState<string | null>(null);
+  const [selectedTreeForLink, setSelectedTreeForLink] = useState<string>("");
+  const [currentLinkedTree, setCurrentLinkedTree] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchTreeNames() {
@@ -137,6 +142,10 @@ const FamilyTreeComponent: React.FC = () => {
           if (node.pids && node.pids.length > 0) {
             obj["pids"] = node.pids;
           }
+          // If this member links to another tree, expose a small inline button (rendered by template)
+          if (node.linkedTree) {
+            obj["linkTree"] = `<button class="link-tree-btn" data-nodeid="${node.id}" title="Go to linked tree">🔗</button>`;
+          }
           return obj;
         });
         console.log(newNode);
@@ -149,6 +158,7 @@ const FamilyTreeComponent: React.FC = () => {
             field_1: "partner",
             field_2: "children",
             field_3: "grandchildren",
+            field_4: "linkTree",
             img_0: "img",
           },
           searchFields: ["name"],
@@ -174,13 +184,55 @@ const FamilyTreeComponent: React.FC = () => {
                 { type: "textbox", label: "Phone", binding: "phone" },
                 { type: "date", label: "Date Of Birth", binding: "dob" },
               ],
+              {
+                type: "select",
+                label: "Link to Tree",
+                binding: "linkToTree",
+                options: [...new Set(treeNames.filter(name => name !== selectedTreeName))].map(name => ({ value: name, text: name }))
+              }
             ],
+            buttons: {
+              edit: {
+                icon: FamilyTree.icon.edit(24, 24, '#fff'),
+                text: 'Edit',
+                hideIfEditMode: true,
+                hideIfDetailsMode: false
+              },
+              linkTree: {
+                icon: FamilyTree.icon.link(24, 24, '#fff'),
+                text: 'Link with Tree',
+                // show when opening node in details/read-only mode
+                hideIfEditMode: true,
+                hideIfDetailsMode: false
+              }
+            },
             addMore: "",
           },
         });
 
         familyTreeRef.current = f;
         familyTreeRef.current.onUpdateNode(handleEdit);
+        // Attach delegated click handler to capture clicks on the inline link buttons inside nodes
+        const handleContainerClick = (ev: MouseEvent) => {
+          const target = ev.target as HTMLElement;
+          const btn = target.closest('.link-tree-btn') as HTMLElement | null;
+          if (btn) {
+            const nodeId = btn.getAttribute('data-nodeid');
+            if (nodeId) {
+              // switch to linked tree for this node
+              switchToLinkedTree(nodeId);
+            }
+          }
+        };
+
+        divRef.current?.addEventListener('click', handleContainerClick);
+
+        // cleanup listener when nodes change or component unmounts
+        const cleanupListener = () => {
+          divRef.current?.removeEventListener('click', handleContainerClick);
+        };
+        
+        // Handle element button clicks (Upload button)
         familyTreeRef.current.editUI.on(
           "element-btn-click",
           function (sender, args) {
@@ -217,6 +269,28 @@ const FamilyTreeComponent: React.FC = () => {
             }
           }
         );
+
+        // Handle form button clicks (Link with Tree button)
+        familyTreeRef.current.editUI.on(
+          "button-click",
+          function (sender, args) {
+            if (args.name === "linkTree") {
+              // Open local React modal instead of using FamilyTree's internal select
+              const member = nodes.find((n: any) => n.id === args.nodeId) as any;
+              const existingLinked: string = member?.linkedTree || "";
+              // prefer showing a linked tree that's not the current tree
+              const preferred = (existingLinked && existingLinked !== selectedTreeName) ? existingLinked : "";
+              setSelectedMemberForLink(args.nodeId);
+              setSelectedTreeForLink(preferred);
+              setCurrentLinkedTree(existingLinked || null);
+              setLinkTreeDialogOpen(true);
+            }
+          }
+        );
+        // ensure cleanup is available on unmount
+        return () => {
+          cleanupListener();
+        };
       } catch (err) {
         console.error("Error initializing family tree:", err);
       }
@@ -231,6 +305,36 @@ const FamilyTreeComponent: React.FC = () => {
     });
   };
 
+  const switchToLinkedTree = async (nodeId: string) => {
+    try {
+      const member = nodes.find((n: any) => n.id === nodeId) as any;
+      const targetTree = member?.linkedTree;
+      if (!targetTree) {
+        toast({ title: 'Error', description: 'No linked tree found for this member', variant: 'destructive' });
+        return;
+      }
+
+      // destroy current family tree instance
+      if (familyTreeRef.current) {
+        try {
+          familyTreeRef.current.destroy();
+        } catch (e) {
+          // ignore destroy errors
+        }
+        familyTreeRef.current = null;
+      }
+
+      // set the selected tree name which will trigger hook to load nodes for that tree
+      setSelectedTreeName(targetTree);
+
+      // reset selected node (root will be set by effect that reads rootFamilyMembers)
+      setSelectedNode(null);
+    } catch (error) {
+      console.error('Error switching to linked tree:', error);
+      toast({ title: 'Error', description: 'Failed to switch tree', variant: 'destructive' });
+    }
+  };
+
   type argsType = {
     addNodesData: Array<object>;
     updateNodesData: Array<{ [key: string]: string }>;
@@ -242,6 +346,12 @@ const FamilyTreeComponent: React.FC = () => {
       const nodesToEdit = args.updateNodesData;
       for (const node of nodesToEdit) {
         try {
+          // Handle tree linking if linkToTree is provided
+          if (node.linkToTree && node.linkToTree !== selectedTreeName) {
+            await handleLinkToTree(node.id, node.linkToTree);
+          }
+          
+          // Update regular family member fields
           await updateFamilyMember(node.id, {
             name: node.name,
             gender: node.gender,
@@ -292,6 +402,46 @@ const FamilyTreeComponent: React.FC = () => {
 
   const handleAdd = () => {
     setIsAddFormOpen(true);
+  };
+
+  const handleLinkToTree = async (nodeId: string, targetTreeName: string) => {
+    if (!targetTreeName || !nodeId) {
+      toast({
+        title: "Error",
+        description: "Please select a tree to link to",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Find the node in the currently loaded nodes to get existing linkedTree
+      const member = nodes.find((n: any) => n.id === nodeId) as any;
+      const existingLinked: string = member?.linkedTree || "";
+
+      if (existingLinked === targetTreeName) {
+        toast({
+          title: "Info",
+          description: `Member already linked to ${targetTreeName}`,
+        });
+        return;
+      }
+
+      // For uniqueness, set linkedTree to the selected value
+      await updateFamilyMember(nodeId, { linkedTree: targetTreeName });
+
+      toast({
+        title: "Success",
+        description: `Member linked to ${targetTreeName} tree successfully`,
+      });
+    } catch (error) {
+      console.error("Error linking member to tree:", error);
+      toast({
+        title: "Error",
+        description: "Failed to link member to tree",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteTree = async () => {
@@ -560,6 +710,63 @@ const FamilyTreeComponent: React.FC = () => {
               Cancel
             </Button>
             <Button onClick={createNewTree}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link with Tree Dialog (opened when user clicks the linkTree button in the edit form) */}
+      <Dialog open={linkTreeDialogOpen} onOpenChange={setLinkTreeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link Member with Tree</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>
+            Select a target tree to link this member with. Existing links are shown below.
+          </DialogDescription>
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Currently linked trees:</label>
+              <div className="text-sm text-muted-foreground">
+                {currentLinkedTree !== null
+                  ? (currentLinkedTree ? currentLinkedTree : "(none)")
+                  : (selectedMemberForLink && (() => {
+                      const member = nodes.find((n: any) => n.id === selectedMemberForLink) as any;
+                      const existing = member?.linkedTree || "";
+                      return existing ? existing : "(none)";
+                    })()) || "(none)"
+                }
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Tree to Link:</label>
+              <Select value={selectedTreeForLink} onValueChange={setSelectedTreeForLink}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a tree" />
+                </SelectTrigger>
+                <SelectContent>
+                  {treeNames.filter(name => name !== selectedTreeName).map((treeName) => (
+                    <SelectItem key={treeName} value={treeName}>{treeName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setLinkTreeDialogOpen(false)} variant="outline">Cancel</Button>
+            <Button onClick={async () => {
+              if (!selectedMemberForLink) return;
+              if (!selectedTreeForLink) {
+                toast({ title: 'Error', description: 'Please select a tree', variant: 'destructive' });
+                return;
+              }
+              await handleLinkToTree(selectedMemberForLink, selectedTreeForLink);
+              // optimistic update of modal display
+              setCurrentLinkedTree((prev) => (prev === selectedTreeForLink ? prev : selectedTreeForLink));
+              setLinkTreeDialogOpen(false);
+            }}>
+              Link with Tree
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

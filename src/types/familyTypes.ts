@@ -9,6 +9,7 @@ export interface FamilyMember {
     mid?: string[] | undefined;
   gender?: string | undefined;
   treename?: string | undefined;
+  linkedTree?: string | undefined;
 }
 
 export interface AddMemberFormProps {

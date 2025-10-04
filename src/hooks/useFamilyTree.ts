@@ -68,6 +68,7 @@ export const useFamilyTree = (treeName: string = "Default Tree") => {
               fid: data.fid || [],
               mid: data.mid || [],
               treename: data.treename || "",
+              linkedTree: data.linkedTree || "",
             } as FamilyMember
             }
           );
