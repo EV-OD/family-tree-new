@@ -62,6 +62,7 @@ export const useFamilyTree = (treeName: string = "Default Tree") => {
               name: data.name || "",
               gender: data.gender || "",
               img: data.img || "",
+              imgKey: data.imgKey || "",
               dob: data.dob || "",
               phone: data.phone || "",
               pids: data.pids || [],

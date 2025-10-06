@@ -1,13 +1,12 @@
-import { db, storage } from '@/firebase';
+import { db } from '@/firebase';
 import { collection, addDoc,getDoc, deleteDoc, doc, updateDoc, getDocs,where,query } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { FamilyMember } from '@/types/familyTypes';
+import { uploadPhotoToServer, deletePhotoFromServer } from './storageService';
 
 export const uploadPhoto = async (image: File) => {
   try {
-    const storageRef = ref(storage, `images/${Date.now()}_${image.name}`);
-    await uploadBytes(storageRef, image);
-    return await getDownloadURL(storageRef);
+    const result = await uploadPhotoToServer(image);
+    return result; // returns { url, key, name, size }
   } catch (error) {
     console.error("Error uploading image: ", error);
     throw error;
@@ -17,13 +16,13 @@ export const uploadPhoto = async (image: File) => {
 export const addFamilyMember = async (newMember: FamilyMember, image: File | null) => {
 
   let imageUrl = "";
+  let imageKey = "";
 
   if (image) {
-    const storageRef = ref(storage, `images/${Date.now()}_${image.name}`);
-    await uploadBytes(storageRef, image);
-    console.log("Image uploaded");
-    imageUrl = await getDownloadURL(storageRef);
-    console.log("Image URL: ", imageUrl);
+    const uploadResult = await uploadPhotoToServer(image);
+    imageUrl = uploadResult.url;
+    imageKey = uploadResult.key;
+    console.log("Image uploaded:", imageUrl);
   }
 
   const memberToAdd: Partial<FamilyMember> = {
@@ -32,6 +31,7 @@ export const addFamilyMember = async (newMember: FamilyMember, image: File | nul
     phone: newMember.phone,
     dob: newMember.dob,
     img: imageUrl || null,
+    imgKey: imageKey || null,
     treename: newMember.treename,
   };
 
@@ -160,12 +160,12 @@ export const deleteFamilyMember = async (memberId: string) => {
     const memberSnapshot = await getDocs(collection(db, "familyMembersTest"));
     const memberToDelete = memberSnapshot.docs.find(doc => doc.id === memberId)?.data() as FamilyMember;
 
-    if (memberToDelete.img) {
-      try{
-        const imageRef = ref(storage, memberToDelete.img);
-        await deleteObject(imageRef);
-      }
-      catch (error) {
+    // Delete image from UploadThing if imgKey exists
+    if (memberToDelete?.imgKey) {
+      try {
+        await deletePhotoFromServer(memberToDelete.imgKey);
+        console.log("Image deleted from storage");
+      } catch (error) {
         console.error("Error removing image: ", error);
       }
     }

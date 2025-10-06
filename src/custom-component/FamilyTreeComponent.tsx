@@ -255,9 +255,13 @@ const FamilyTreeComponent: React.FC = () => {
                       "We are uploading your image, wait for a moment",
                   });
                   const compressedFile = await imageCompression(file, options);
-                  const imageUrl = await uploadPhoto(compressedFile);
+                  const uploadResult = await uploadPhoto(compressedFile);
                   let nodeId = args.nodeId;
-                  updateFamilyMember(nodeId, { img: imageUrl }).then(() => {
+                  // Update with both url and key
+                  updateFamilyMember(nodeId, { 
+                    img: uploadResult.url,
+                    imgKey: uploadResult.key 
+                  }).then(() => {
                     toast({
                       title: "Success",
                       description: "Image uploaded successfully",

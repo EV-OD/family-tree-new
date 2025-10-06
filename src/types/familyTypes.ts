@@ -4,6 +4,7 @@ export interface FamilyMember {
     phone?: string | undefined;
     dob?: string | undefined;
     img?: string | null | undefined;
+    imgKey?: string | null | undefined;
     pids?: string[] | undefined;
     fid?: string[] | undefined;
     mid?: string[] | undefined;
