@@ -95,7 +95,7 @@ export default function AddMemberForm({
     ) {
       const imageFile = e.target.files[0];
       const options = {
-        maxSizeMB: 0.2,
+        maxSizeMB: 0.1,
         useWebWorker: true,
       };
       try {

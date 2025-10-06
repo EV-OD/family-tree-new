@@ -245,7 +245,7 @@ const FamilyTreeComponent: React.FC = () => {
             if (args.event.target.innerHTML == "Upload") {
               FamilyTree.fileUploadDialog(async function (file) {
                 const options = {
-                  maxSizeMB: 0.2,
+                  maxSizeMB: 0.1,
                   useWebWorker: true,
                 };
                 try {
