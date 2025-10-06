@@ -16,8 +16,11 @@ const utapi = new UTApi({
 });
 
 // CORS configuration - adjust origins as needed
+// Remove trailing slash from CLIENT_URL if present
+const clientUrl = process.env.CLIENT_URL?.replace(/\/$/, '') || "*";
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || "*",
+  origin: clientUrl,
   methods: ["GET", "POST", "DELETE"],
   credentials: true,
 }));
